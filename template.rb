@@ -1,20 +1,36 @@
 require "fileutils"
 require "shellwords"
 
+# Copied from: https://github.com/mattbrictson/rails-template
+# Add this template directory to source_paths so that Thor actions like
+# copy_file and template resolve against our source files. If this file was
+# invoked remotely via HTTP, that means the files are not present locally.
+# In that case, use `git clone` to download them to a local temporary dir.
 def add_template_repo_to_source_path
-  source_paths.unshift(File.dirname(__FILE__))
-end
+  if __FILE__ =~ %r{\Ahttps?://}
+    require "tmpdir"
+    source_paths.unshift(tempdir = Dir.mktmpdir("springer-"))
+    at_exit { FileUtils.remove_entry(tempdir) }
+    git clone: [
+      "--quiet",
+      "https://github.com/troyizzle/springer.git",
+      tempdir
+    ].map(&:shellescape).join(" ")
 
-def rails_version
-  @rails_version ||= Gem::Version.new(Rails::VERSION::STRING)
+    if (branch = __FILE__[%r{springer/(.+)/template.rb}, 1])
+      Dir.chdir(tempdir) { git checkout: branch }
+    end
+  else
+    source_paths.unshift(File.dirname(__FILE__))
+  end
 end
 
 def set_application_name
   environment "config.application_name = Rails.application.class.module_parent_name"
 end
 
-def rails_6?
-  Gem::Requirement.new(">= 6.0.0.beta1", "< 7").satisfied_by? rails_version
+def rails_version
+  @rails_version ||= Gem::Version.new(Rails::VERSION::STRING)
 end
 
 def add_tailwind
@@ -30,7 +46,6 @@ def add_tailwind
   create_file(style_css, styles)
 
   # require stylesheet in Application.js
-  puts "requiring stylestyle in application.js"
   append_to_file 'app/javascript/packs/application.js' do
     'require("stylesheets/application.scss")'
   end
@@ -66,9 +81,11 @@ def add_form_builder
 end
 
 def add_gems
-  gem 'devise'
-  gem 'pundit'
+  gem 'devise', github: 'heartcombo/devise'
   gem 'hotwire-rails'
+  gem 'omniauth', '>=1.0.0'
+  gem 'pundit'
+  gem "view_component", require: "view_component/engine"
   gem 'whenever', require: false
 
   gem_group :development, :test do
@@ -85,10 +102,14 @@ def add_users
               env: 'development'
   route "root to: 'home#index'"
 
-  puts "Generating Devise User"
   generate :devise, 'User',
     'admin:boolean',
     'username:string'
+
+  # Add omniauthable on model
+  insert_into_file "app/models/user.rb",
+    ", :omniauthable, omniauth_providers: %i[facebook twitter github]",
+    after: " :validatable"
 
   in_root do
     migration = Dir.glob("db/migrate/*").max_by { |f| File.mtime(f) }
@@ -113,10 +134,6 @@ end
 
 def add_authorization
   generate 'pundit:install'
-end
-
-def add_webpack
-  return if rails_6?
 end
 
 def add_multiple_authentication
@@ -162,11 +179,9 @@ after_bundle do
   add_users
   add_users_profile
   add_authorization
-  add_webpack
   add_multiple_authentication
   add_form_builder
-
-  # add_whenever
+  add_whenever
 
   rails_command "active_storage:install"
   rails_command "hotwire:install"
@@ -185,9 +200,7 @@ after_bundle do
     rescue StandardError => e
       puts e.message
     end
-
-    say
-    say "Hey something worked", :blue
-    say " rails db:create db:migrate"
   end
+
+  say "App successfully created!", :blue
 end
