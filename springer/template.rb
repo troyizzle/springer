@@ -6,7 +6,7 @@ require "shellwords"
 # copy_file and template resolve against our source files. If this file was
 # invoked remotely via HTTP, that means the files are not present locally.
 # In that case, use `git clone` to download them to a local temporary dir.
-def add_template_repository_to_source_path
+def add_template_repo_to_source_path
   if __FILE__ =~ %r{\Ahttps?://}
     require "tmpdir"
     source_paths.unshift(tempdir = Dir.mktmpdir("springer-"))
@@ -81,10 +81,11 @@ def add_form_builder
 end
 
 def add_gems
-  gem 'devise'
-  gem 'pundit'
+  gem 'devise', github: 'heartcombo/devise'
   gem 'hotwire-rails'
-  #gem "view_component", require: "view_component/engine"
+  gem 'omniauth', '>=1.0.0'
+  gem 'pundit'
+  gem "view_component", require: "view_component/engine"
   gem 'whenever', require: false
 
   gem_group :development, :test do
@@ -104,6 +105,11 @@ def add_users
   generate :devise, 'User',
     'admin:boolean',
     'username:string'
+
+  # Add omniauthable on model
+  insert_into_file "app/models/user.rb",
+    ", :omniauthable, omniauth_providers: %i[facebook twitter github]",
+    after: " :validatable"
 
   in_root do
     migration = Dir.glob("db/migrate/*").max_by { |f| File.mtime(f) }
