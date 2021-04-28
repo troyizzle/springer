@@ -1,5 +1,5 @@
 ## Getting Started
-This was heavily inspired by [Jumpstart](https://github.com/excid3/jumpstart) but incorporated some things I've frequently added.
+This was heavily inspired by [Jumpstart](https://github.com/excid3/jumpstart) but incorporated some things I've frequently added. One of the plus sides is tailwind! wow! tailwind!
 
 #### Requirements
 
