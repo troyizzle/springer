@@ -125,7 +125,7 @@ def add_users
 end
 
 def add_users_profile
-  generate "model Profile first_name last_name users:references"
+  generate "model Profile first_name last_name user:references"
 end
 
 def add_home_controller
